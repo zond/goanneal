@@ -70,10 +70,10 @@ func (a *Annealer) update(step int, T float64, E float64, acceptance float64, im
 	elapsed := now() - a.startTime
 	if step == 0 {
 		fmt.Fprintln(os.Stderr, " Temperature        Energy    Accept   Improve     Elapsed   Remaining")
-		fmt.Fprintf(os.Stderr, "\r%12.5f  %12.2f                      %s            ", T, E, timeString(elapsed))
+		fmt.Fprintf(os.Stderr, "\r%12.6f  %12.5f                         %s            ", T, E, timeString(elapsed))
 	} else {
 		remain := float64(a.Steps-step) * (elapsed / float64(step))
-		fmt.Fprintf(os.Stderr, "\r%12.5f  %12.2f  %7.2f%%  %7.2f%%  %s  %s",
+		fmt.Fprintf(os.Stderr, "\r%12.6f  %12.5f  %7.2f%%  %7.2f%%  %s  %s",
 			T, E, 100.0*acceptance, 100.0*improvement, timeString(elapsed), timeString(remain))
 	}
 }
