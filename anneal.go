@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"time"
 )
 
 // State is an interface of a state of a problem.
@@ -23,7 +24,7 @@ type Annealer struct {
 	Tmax    float64 // max temperature
 	Tmin    float64 // minimum temperature
 	Steps   int
-	Updates int
+	Updates time.Duration
 
 	// user settings
 	CopyStrategy string
@@ -43,7 +44,7 @@ func NewAnnealer(initialState State) *Annealer {
 	a.Tmax = 25000.0
 	a.Tmin = 2.5
 	a.Steps = 50000
-	a.Updates = 100
+	a.Updates = time.Second
 	return a
 }
 
@@ -52,7 +53,6 @@ func (a *Annealer) SetSchedule(schedule map[string]float64) {
 	a.Tmax = schedule["tmax"]
 	a.Tmin = schedule["tmin"]
 	a.Steps = int(schedule["steps"])
-	a.Updates = int(schedule["updates"])
 }
 
 // Outputs to stderr.
@@ -100,12 +100,15 @@ func (a *Annealer) Anneal() (interface{}, float64) {
 	prevEnergy := E
 	a.bestState = a.State.Copy().(State)
 	a.bestEnergy = E
-	traials, accepts, imporoves := 0, 0.0, 0.0
-	var updateWavelength float64
-	if a.Updates > 0 {
-		updateWavelength = float64(a.Steps) / float64(a.Updates)
-		a.update(step, T, E, 0.0, 0.0)
+	trials, accepts, improves := 0.0, 0.0, 0.0
+	lastUpdate := time.Unix(0, 0)
+	doUpdate := func() {
+		if a.Updates > 0 && time.Now().Sub(lastUpdate) > a.Updates {
+			a.update(step, T, E, accepts/trials, improves/trials)
+			trials, accepts, improves, lastUpdate = 0, 0.0, 0.0, time.Now()
+		}
 	}
+	doUpdate()
 
 	// Attempt moves to new states
 	for step < a.Steps && !a.UserExit {
@@ -114,16 +117,16 @@ func (a *Annealer) Anneal() (interface{}, float64) {
 		a.State.Move()
 		E := a.State.Energy()
 		dE := E - prevEnergy
-		traials++
+		trials += 1
 		if dE > 0.0 && math.Exp(-dE/T) < rand.Float64() {
 			// Restore previous state
 			a.State = prevState.Copy().(State)
 			E = prevEnergy
 		} else {
 			// Accept new state and compare to best state
-			accepts += 1.0
+			accepts += 1
 			if dE < 0.0 {
-				imporoves += 1.0
+				improves += 1
 			}
 			prevState = a.State.Copy().(State)
 			prevEnergy = E
@@ -132,12 +135,7 @@ func (a *Annealer) Anneal() (interface{}, float64) {
 				a.bestEnergy = E
 			}
 		}
-		if a.Updates > 1 {
-			if (step / int(updateWavelength)) > ((step - 1) / int(updateWavelength)) {
-				a.update(step, T, E, accepts/float64(traials), imporoves/float64(traials))
-				traials, accepts, imporoves = 0, 0.0, 0.0
-			}
-		}
+		doUpdate()
 	}
 	fmt.Fprintln(os.Stderr, "")
 
@@ -221,5 +219,5 @@ func (a *Annealer) Auto(minutes float64, steps int) map[string]float64 {
 	duration := roundFigure(60.0*minutes*float64(step)/elapsed, 2)
 
 	// Don't perform anneal, just return params
-	return map[string]float64{"tmax": Tmax, "tmin": Tmin, "steps": duration, "updates": float64(a.Updates)}
+	return map[string]float64{"tmax": Tmax, "tmin": Tmin, "steps": duration}
 }
