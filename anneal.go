@@ -104,7 +104,7 @@ func (a *Annealer) Anneal() (interface{}, float64) {
 	lastUpdate := time.Unix(0, 0)
 	doUpdate := func() {
 		if a.Updates > 0 && time.Now().Sub(lastUpdate) > a.Updates {
-			a.update(step, T, E, accepts/trials, improves/trials)
+			a.update(step, T, a.bestEnergy, accepts/trials, improves/trials)
 			trials, accepts, improves, lastUpdate = 0, 0.0, 0.0, time.Now()
 		}
 	}
