@@ -21,10 +21,11 @@ type State interface {
 // annealing may be provided manually or estimated automatically.
 type Annealer struct {
 	// parameters
-	Tmax    float64 // max temperature
-	Tmin    float64 // minimum temperature
-	Steps   int
-	Updates time.Duration
+	Tmax               float64 // max temperature
+	Tmin               float64 // minimum temperature
+	Steps              int
+	Updates            time.Duration
+	PreliminaryResults chan func(State)
 
 	// user settings
 	CopyStrategy string
@@ -106,6 +107,13 @@ func (a *Annealer) Anneal() (interface{}, float64) {
 		if a.Updates > 0 && time.Now().Sub(lastUpdate) > a.Updates {
 			a.update(step, T, a.bestEnergy, accepts/trials, improves/trials)
 			trials, accepts, improves, lastUpdate = 0, 0.0, 0.0, time.Now()
+		}
+		if a.PreliminaryResults != nil {
+			select {
+			case handler := <-a.PreliminaryResults:
+				handler(a.bestState)
+			default:
+			}
 		}
 	}
 	doUpdate()
